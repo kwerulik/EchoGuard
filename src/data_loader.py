@@ -19,18 +19,20 @@ def load_bearing_data(filemane, data_dir=DEFAULT_DATA_DIR):
 
 
 def compute_melspec(df, colum_name='Bearing_1', sr=20000):
-	signal = df['Bearing_1'].values
-	melspec = librosa.feature.melspectrogram(y=signal, sr=sr, n_mels=128, fmax=10000)
-	melspec_db = librosa.power_to_db(melspec, ref=np.max)
-	return melspec_db
+    signal = df['Bearing_1'].values
+    melspec = librosa.feature.melspectrogram(
+        y=signal, sr=sr, n_mels=128, fmax=10000, hop_length=128)
+    melspec_db = librosa.power_to_db(melspec, ref=np.max)
+    return melspec_db
+
 
 def creadte_dataset_windows(melspec, window_size=64, stride=32):
     n_mels, time_steps = melspec.shape
     windows = []
     for i in range(0, time_steps-window_size, stride):
-         w = melspec[:, i:i+window_size]
-         windows.append(w)
-    
+        w = melspec[:, i:i+window_size]
+        windows.append(w)
+
     X = np.array(windows)
     X = X[..., np.newaxis]
     return X
