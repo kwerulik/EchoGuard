@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  localstack:
+    container_name: localstack_echoguard
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"
+      - "4510-4559:4510-4559"  
+    environment:
+      - SERVICES=s3,lambda     
+      - DEBUG=1                
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - LAMBDA_EXECUTOR=docker 
+    volumes:
+      - "./infra:/etc/localstack/init/ready.d" 
+      - "/var/run/docker.sock:/var/run/docker.sock" 
