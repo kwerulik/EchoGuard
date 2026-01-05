@@ -51,11 +51,11 @@ def process_and_upload(file_path):
         print(f"[EDGE] ❌ Błąd: {e}")
 
 
-# if __name__ == "__main__":
-#     TEST_FILE = 'data/raw/2nd_test/2004.02.19.04.52.39'
+if __name__ == "__main__":
+    TEST_FILE = 'data/raw/2nd_test/2004.02.12.18.32.39'
 
-#     if os.path.exists(TEST_FILE):
-#         process_and_upload(TEST_FILE)
-#     else:
-#         print(f"Nie znaleziono pliku testowego: {TEST_FILE}")
-#         print("Sprawdź ścieżkę w zmiennej TEST_FILE w skrypcie.")
+    if os.path.exists(TEST_FILE):
+        process_and_upload(TEST_FILE)
+    else:
+        print(f"Nie znaleziono pliku testowego: {TEST_FILE}")
+        print("Sprawdź ścieżkę w zmiennej TEST_FILE w skrypcie.")
