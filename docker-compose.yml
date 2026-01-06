@@ -8,7 +8,7 @@ services:
       - "4566:4566"
       - "4510-4559:4510-4559"  
     environment:
-      - SERVICES=s3,lambda     
+      - SERVICES=s3,lambda,cloudformation,sts,dynamodb
       - DEBUG=1                
       - DOCKER_HOST=unix:///var/run/docker.sock
       - LAMBDA_EXECUTOR=docker 

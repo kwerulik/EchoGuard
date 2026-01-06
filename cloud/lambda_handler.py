@@ -3,12 +3,17 @@ import json
 import logging
 import sys
 import boto3
+from datetime import datetime
 
 # Konfiguracja loggera
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+# --- INICJALIZACJA ZASOBÓW AWS (Global Scope) ---
 s3 = boto3.client('s3')
+dynamodb = boto3.resource('dynamodb')
+TABLE_NAME = "EchoGuardResults"
+table = dynamodb.Table(TABLE_NAME)
 
 session = None
 threshold = None
@@ -28,7 +33,7 @@ def lambda_handler(event, context):
         logger.error(f"❌ BŁĄD IMPORTU: {e}")
         return {'statusCode': 500, 'body': f"Library Error: {e}"}
 
-    # --- 2. ŁADOWANIE MODELU I KONFIGURACJI ---
+    # --- 1. ŁADOWANIE MODELU I KONFIGURACJI ---
     try:
         MODEL_PATH = 'bearing_model.onnx'
         CONFIG_PATH = 'model_config.json'
@@ -52,9 +57,8 @@ def lambda_handler(event, context):
         logger.error(f"❌ Błąd ładowania modelu: {e}")
         return {'statusCode': 500, 'body': f"Model Load Error: {e}"}
 
-    # --- 3. PRZETWARZANIE DANYCH ---
+    # --- 2. PRZETWARZANIE DANYCH ---
     try:
-        # Pobranie informacji z eventu S3
         record = event['Records'][0]
         bucket = record['s3']['bucket']['name']
         key = record['s3']['object']['key']
@@ -64,41 +68,60 @@ def lambda_handler(event, context):
         s3.download_file(bucket, key, download_path)
 
         data = np.load(download_path).astype(np.float32)
-        logger.info(f"Oryginalny kształt danych: {data.shape}")
 
         TARGET_HEIGHT = 128
         TARGET_WIDTH = 64
 
         if data.shape[1] > TARGET_WIDTH:
-            logger.warning(
-                f"Dane za szerokie ({data.shape[1]}), przycinam do {TARGET_WIDTH}.")
             data = data[:, :TARGET_WIDTH]
 
         if data.ndim == 2:
             data = np.expand_dims(data, axis=0)
             data = np.expand_dims(data, axis=-1)
 
-        logger.info(f"Kształt danych wejściowych do modelu: {data.shape}")
-
-        # --- 4. INFERENCJA (URUCHOMIENIE MODELU) ---
+        # --- 3. INFERENCJA (URUCHOMIENIE MODELU) ---
         input_name = session.get_inputs()[0].name
         output_name = session.get_outputs()[0].name
 
         reconstructions = session.run([output_name], {input_name: data})[0]
 
+        # Obliczenie błędu MSE
         mse = np.mean(np.power(data - reconstructions, 2))
-        logger.info(f"📊 WYNIK MSE: {mse:.6f} (Próg: {threshold})")
+        mse_float = float(mse) 
 
-        status = "HEALTHY" if mse <= threshold else "ANOMALY_DETECTED"
+        logger.info(f"📊 WYNIK MSE: {mse_float:.6f} (Próg: {threshold})")
+
+        status = "HEALTHY" if mse_float <= threshold else "ANOMALY_DETECTED"
         if status == "ANOMALY_DETECTED":
             logger.warning("🚨 !!! WYKRYTO ANOMALIĘ !!! 🚨")
+
+        # --- 4. ZAPIS DO DYNAMODB (NOWOŚĆ) ---
+        try:
+            filename = os.path.basename(key)
+            timestamp_str = filename.replace('.npy', '').replace('.', '-')
+
+            item = {
+                'device_id': 'test_rig_1',
+                'timestamp': timestamp_str,
+                'mse_value': str(mse_float),
+                'status': status,
+                'threshold': str(threshold),
+                'source_file': key,
+                'processed_at': datetime.now().isoformat()
+            }
+
+            table.put_item(Item=item)
+            logger.info(f"✅ Wynik zapisany w DynamoDB: {TABLE_NAME}")
+
+        except Exception as db_error:
+            logger.error(f"⚠️ Nie udało się zapisać do DynamoDB: {db_error}")
 
         return {
             'statusCode': 200,
             'body': json.dumps({
                 'file': key,
                 'status': status,
-                'mse': float(mse),
+                'mse': mse_float,
                 'threshold': threshold
             })
         }
