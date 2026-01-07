@@ -39,6 +39,7 @@ def get_dynamodb_table():
 
 table = get_dynamodb_table()
 
+
 def fetch_data():
     if not table:
         return pd.DataFrame()
@@ -46,21 +47,34 @@ def fetch_data():
     try:
         response = table.scan()
         items = response.get('Items', [])
-
         if not items:
             return pd.DataFrame()
 
         df = pd.DataFrame(items)
 
+        # 1. Konwersja liczb
         df['mse_value'] = pd.to_numeric(df['mse_value'], errors='coerce')
         df['threshold'] = pd.to_numeric(df['threshold'], errors='coerce')
-        df['timestamp_dt'] = pd.to_datetime(df['timestamp'], format='%Y-%m-%d-%H-%M-%S', errors='coerce')
+
+        # 2. CZYSZCZENIE DATY (To naprawi 'None' w tabeli)
+        # Usuwamy prefiksy z nazwy timestampu
+        df['clean_timestamp'] = df['timestamp'].astype(
+            str).str.replace('NORMAL_', '').str.replace('ANOMALY_', '')
+
+        # Zamieniamy kropki na myślniki (jeśli symulator używał kropek)
+        df['clean_timestamp'] = df['clean_timestamp'].str.replace('.', '-')
+
+        # Parsujemy datę
+        df['timestamp_dt'] = pd.to_datetime(
+            df['clean_timestamp'], format='%Y-%m-%d-%H-%M-%S', errors='coerce')
+
+        # Usuwamy wiersze, gdzie data się nie udała
+        df = df.dropna(subset=['timestamp_dt'])
 
         return df.sort_values('timestamp_dt')
     except Exception as e:
-        st.error(f"Błąd przetwarzania danych: {e}")
+        st.error(f"Błąd danych: {e}")
         return pd.DataFrame()
-
 
 st.title("🛡️ EchoGuard: Monitor Anomalii Łożysk")
 st.markdown(f"**Status połączenia:** {'✅ Online' if table else '❌ Offline'}")
@@ -97,6 +111,7 @@ if not df.empty:
     st.divider()
     st.subheader("📉 Wykres Wibracji w Czasie")
 
+    recent_df = df.tail(50)
     chart_df = df[['timestamp_dt', 'mse_value', 'threshold']].copy()
     chart_df = chart_df.set_index('timestamp_dt')
 
@@ -110,5 +125,5 @@ if not df.empty:
 else:
     st.info("Baza danych jest pusta lub nie udało się pobrać danych. Uruchom symulator!")
 
-time.sleep(3)
+time.sleep(5)
 st.rerun()

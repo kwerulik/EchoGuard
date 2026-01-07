@@ -5,13 +5,13 @@ project_root = os.path.dirname(current_dir)
 src_path = os.path.join(project_root, 'src')
 sys.path.append(src_path)
 
+sys.path.append(os.path.abspath(os.path.join('..', 'src')))
+
 import time
 import numpy as np
 import boto3
 from data_loader import load_bearing_data, compute_melspec
 from botocore.exceptions import NoCredentialsError
-
-sys.path.append(os.path.abspath(os.path.join('..', 'src')))
 
 
 s3 = boto3.client('s3',
@@ -28,7 +28,6 @@ def process_and_upload(file_path):
 
     try:
         df = load_bearing_data(file_path, '')
-
         melspec = compute_melspec(df)
 
         NORM_MIN = -80.0
@@ -52,7 +51,7 @@ def process_and_upload(file_path):
 
 
 if __name__ == "__main__":
-    TEST_FILE = 'data/raw/2nd_test/2004.02.12.18.32.39'
+    TEST_FILE = 'data/raw/2nd_test/2004.02.19.01.52.39'
 
     if os.path.exists(TEST_FILE):
         process_and_upload(TEST_FILE)
