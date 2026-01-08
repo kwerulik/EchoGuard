@@ -114,7 +114,7 @@ if st.checkbox("🔴 Włącz Live Monitoring", value=True):
 
             chart_placeholder.plotly_chart(
                 fig, 
-                use_container_width=True,
+                width="stretch",
                 key=f"live_chart_{time.time()}"
             )
         else:
