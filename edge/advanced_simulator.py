@@ -1,73 +1,77 @@
-import boto3
-import numpy as np
+import sys
 import os
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+src_path = os.path.join(project_root, 'src')
+sys.path.append(src_path)
+
 import time
-import random
-from datetime import datetime
+import numpy as np
+import boto3
+import pandas as pd
+import librosa
+from data_loader import load_bearing_data, compute_melspec 
 
+sys.path.append(os.path.abspath(os.path.join('..', 'src')))
+
+# --- KONFIGURACJA ---
+s3 = boto3.client('s3', endpoint_url='http://localhost:4566',
+                  aws_access_key_id='test', aws_secret_access_key='test', region_name='us-east-1')
 BUCKET_NAME = 'echoguard-data'
-SOURCE_FILE = 'data/raw/2nd_test/2004.02.12.18.32.39.npy'
-
-s3 = boto3.client(
-    's3',
-    endpoint_url='http://localhost:4566',
-    aws_access_key_id='test',
-    aws_secret_access_key='test',  
-    region_name='us-east-1'
-)
-
-def load_base_data():
-    """Wczytuje 'zdrowy' plik jako wzorzec."""
-    if not os.path.exists(SOURCE_FILE):
-        print(f"❌ Nie znaleziono pliku wzorcowego: {SOURCE_FILE}")
-        return np.random.normal(0, 0.1, (128, 64)).astype(np.float32)
-    return np.load(SOURCE_FILE)
+DATA_DIR = 'data/raw/2nd_test'  # Upewnij się co do ścieżki
 
 
-def simulate_vibration():
-    base_data = load_base_data()
+def run_simulation(interval=0.5):
+    """
+    Symuluje działanie maszyny przez cały cykl życia.
+    interval: czas w sekundach między wysłaniem kolejnych plików.
+    """
+    files = sorted(os.listdir(DATA_DIR))
+    # Filtrujemy tylko pliki z danymi (czasami są tam pliki .pdf readme)
+    files = [f for f in files if not f.endswith(
+        '.pdf') and not f.endswith('.doc')]
 
-    print("\n--- ROZPOCZYNAM DELIKATNĄ SYMULACJĘ ---")
+    print(f"🚀 Rozpoczynam symulację. Do przetworzenia: {len(files)} plików.")
+    print(f"⏱️ Interwał wysyłania: {interval}s")
 
-    try:
-        while True:
-            is_anomaly = random.random() < 0.2
-            current_data = base_data.copy()
+    for i, filename in enumerate(files):
+        file_path = os.path.join(DATA_DIR, filename)
 
-            if is_anomaly:
-                print("⚠️  AWARIA! Generowanie wibracji...")
-                # Zmieniamy charakterystykę drastycznie
-                current_data = current_data * 2.0
-                # Szum anomalii
-                noise = np.random.normal(0, 0.1, current_data.shape)
-                current_data += noise
-                file_prefix = "ANOMALY_"
-            else:
-                print("✅  Praca normalna.")
-                # --- TUTAJ BYŁ PROBLEM ---
-                # Zmniejszamy szum z 0.02 na 0.001 (było za głośno dla modelu)
-                noise = np.random.normal(0, 0.001, current_data.shape)
-                current_data += noise
-                file_prefix = "NORMAL_"
+        try:
+            # 1. Edge Processing (To co robi IoT Gateway)
+            df = load_bearing_data(filename, DATA_DIR)
+            melspec = compute_melspec(df)
 
-            # Generowanie nazwy i zapisu
-            timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S") 
-            filename = f"{file_prefix}{timestamp}.npy"
-            temp_path = f"temp_{filename}"
+            # Normalizacja (taka sama jak w treningu!)
+            NORM_MIN, NORM_MAX = -80.0, 0.0
+            norm_mel = (melspec - NORM_MIN) / (NORM_MAX - NORM_MIN)
+            norm_mel = np.clip(norm_mel, 0, 1)
 
-            np.save(temp_path, current_data)
+            # 2. Zapis do .npy i upload
+            npy_filename = f"{filename}.npy"
+            np.save(npy_filename, norm_mel)
 
-            try:
-                s3.upload_file(temp_path, BUCKET_NAME, filename)
-                print(f"📤 Wysłano: {filename}")
-            except Exception as e:
-                print(f"❌ Błąd wysyłania: {e}")
+            # Upload do S3 (triggeruje Lambdę)
+            s3.upload_file(npy_filename, BUCKET_NAME, npy_filename)
 
-            os.remove(temp_path)
-            time.sleep(3)  
+            # Sprzątanie lokalne
+            os.remove(npy_filename)
 
-    except KeyboardInterrupt:
-        print("\n🛑 Zatrzymano.")
+            print(f"[{i+1}/{len(files)}] 📡 Wysłano: {filename} -> S3")
+
+        except Exception as e:
+            print(f"❌ Błąd przy pliku {filename}: {e}")
+
+        # Symulacja upływu czasu
+        time.sleep(interval)
+
 
 if __name__ == "__main__":
-    simulate_vibration()
+    # Upewnij się, że bucket istnieje
+    try:
+        s3.create_bucket(Bucket=BUCKET_NAME)
+    except:
+        pass  # Bucket pewnie już jest
+
+    run_simulation(interval=3) 
