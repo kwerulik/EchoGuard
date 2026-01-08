@@ -22,3 +22,6 @@ build/
 src/lambda_package.zip
 
 .env
+
+*.zip
+**/__pycache__
