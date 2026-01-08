@@ -10,10 +10,11 @@ FUNCTION_NAME = 'EchoGuardAnalyzer'
 BUCKET_NAME = 'echoguard-data'
 ZIP_NAME = 'lambda_package.zip'
 BUILD_DIR = 'dist'
+aws_endpoint = os.getenv('AWS_ENDPOINT_URL', 'http://localhost:4566')
 
-lambda_client = boto3.client('lambda', endpoint_url='http://localhost:4566',
+lambda_client = boto3.client('lambda', endpoint_url=aws_endpoint,
                              aws_access_key_id='test', aws_secret_access_key='test', region_name='us-east-1')
-s3_client = boto3.client('s3', endpoint_url='http://localhost:4566',
+s3_client = boto3.client('s3', endpoint_url=aws_endpoint,
                          aws_access_key_id='test', aws_secret_access_key='test', region_name='us-east-1')
 
 
@@ -27,6 +28,7 @@ def ensure_infrastructure():
 
 
 def build_package():
+    # 1. Czyszczenie starych plików
     if os.path.exists(BUILD_DIR):
         shutil.rmtree(BUILD_DIR)
     os.makedirs(BUILD_DIR)
@@ -34,45 +36,53 @@ def build_package():
     if os.path.exists(ZIP_NAME):
         os.remove(ZIP_NAME)
 
-    print("🏭 KROK 1: Budowanie paczki zgodnej z Amazon Linux 2...")
+    print("🏭 KROK 1: Budowanie paczki (Native Linux Build)...")
 
-    cmd = [
-        'docker', 'run', '--rm',
-        '-v', f'{os.getcwd()}/{BUILD_DIR}:/install',
-        'python:3.9-slim',
-        'pip', 'install',
-        'numpy==1.23.5',
-        'onnxruntime==1.14.1',
-        'protobuf==3.20.3',
-        '--platform', 'manylinux2014_x86_64',
-        '--only-binary=:all:',
-        '--target', '/install',
-        '--implementation', 'cp',
-        '--python-version', '3.9',
-        '--abi', 'cp39'
-    ]
-
-    print("   ⏳ Pobieranie bibliotek (Fix GLIBC 2.26)...")
+    # --- ZMIANA: Instalujemy pipem bezpośrednio w kontenerze ---
+    # Nie używamy już 'docker run', bo jesteśmy w środowisku Linux!
     try:
-        subprocess.check_call(cmd)
-    except subprocess.CalledProcessError:
-        print("❌ Błąd Dockera. Upewnij się, że Docker Desktop działa.")
+        subprocess.check_call([
+            sys.executable, '-m', 'pip', 'install',
+            'numpy==1.23.5',
+            'onnxruntime==1.14.1',
+            'protobuf==3.20.3',
+            '--target', BUILD_DIR,  # Instalacja wprost do folderu dist
+            '--no-cache-dir',
+            # Wymuszamy wersję Linuxową (zgodną z AWS Lambda)
+            '--platform', 'manylinux2014_x86_64',
+            '--only-binary=:all:',
+            '--implementation', 'cp',
+            '--python-version', '3.9',
+            '--abi', 'cp39'
+        ])
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Błąd pip install: {e}")
         sys.exit(1)
 
+    # 2. Czyszczenie śmieci (zmniejszanie wagi paczki)
+    print("   🧹 Czyszczenie zbędnych plików...")
     for root, dirs, files in os.walk(BUILD_DIR):
         for d in dirs:
             if d.endswith('.dist-info') or d == '__pycache__':
                 shutil.rmtree(os.path.join(root, d), ignore_errors=True)
 
+    # 3. Kopiowanie Twojego kodu
     print("   📂 Kopiowanie plików projektu...")
-    shutil.copy('cloud/lambda_handler.py', f'{BUILD_DIR}/lambda_handler.py')
-    shutil.copy('models/bearing_model.onnx', f'{BUILD_DIR}/bearing_model.onnx')
-    shutil.copy('config/model_config.json', f'{BUILD_DIR}/model_config.json')
+    try:
+        shutil.copy('cloud/lambda_handler.py',
+                    f'{BUILD_DIR}/lambda_handler.py')
+        shutil.copy('models/bearing_model.onnx',
+                    f'{BUILD_DIR}/bearing_model.onnx')
+        shutil.copy('config/model_config.json',
+                    f'{BUILD_DIR}/model_config.json')
+    except FileNotFoundError as e:
+        print(f"❌ Brakuje pliku: {e}")
+        sys.exit(1)
 
+    # 4. Pakowanie do ZIP
     print("   📦 Pakowanie ZIP...")
     shutil.make_archive('lambda_package', 'zip', BUILD_DIR)
     print(f"   ✅ Gotowe: {ZIP_NAME}")
-
 
 def deploy():
     print(f"🚀 KROK 2: Wdrażanie {FUNCTION_NAME}...")
