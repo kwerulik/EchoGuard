@@ -28,7 +28,7 @@ def ensure_infrastructure():
 
 
 def build_package():
-    # 1. Czyszczenie starych plików
+    # 1. Clean up old files
     if os.path.exists(BUILD_DIR):
         shutil.rmtree(BUILD_DIR)
     os.makedirs(BUILD_DIR)
@@ -38,17 +38,14 @@ def build_package():
 
     print("🏭 KROK 1: Budowanie paczki (Native Linux Build)...")
 
-    # --- ZMIANA: Instalujemy pipem bezpośrednio w kontenerze ---
-    # Nie używamy już 'docker run', bo jesteśmy w środowisku Linux!
     try:
         subprocess.check_call([
             sys.executable, '-m', 'pip', 'install',
             'numpy==1.23.5',
             'onnxruntime==1.14.1',
             'protobuf==3.20.3',
-            '--target', BUILD_DIR,  # Instalacja wprost do folderu dist
+            '--target', BUILD_DIR, 
             '--no-cache-dir',
-            # Wymuszamy wersję Linuxową (zgodną z AWS Lambda)
             '--platform', 'manylinux2014_x86_64',
             '--only-binary=:all:',
             '--implementation', 'cp',
@@ -59,14 +56,14 @@ def build_package():
         print(f"❌ Błąd pip install: {e}")
         sys.exit(1)
 
-    # 2. Czyszczenie śmieci (zmniejszanie wagi paczki)
+    # 2. Clean up artifacts (reduce package size)
     print("   🧹 Czyszczenie zbędnych plików...")
     for root, dirs, files in os.walk(BUILD_DIR):
         for d in dirs:
             if d.endswith('.dist-info') or d == '__pycache__':
                 shutil.rmtree(os.path.join(root, d), ignore_errors=True)
 
-    # 3. Kopiowanie Twojego kodu
+    # 3. Copy source code
     print("   📂 Kopiowanie plików projektu...")
     try:
         shutil.copy('cloud/lambda_handler.py',
@@ -79,7 +76,7 @@ def build_package():
         print(f"❌ Brakuje pliku: {e}")
         sys.exit(1)
 
-    # 4. Pakowanie do ZIP
+    # 4. Compress to ZIP
     print("   📦 Pakowanie ZIP...")
     shutil.make_archive('lambda_package', 'zip', BUILD_DIR)
     print(f"   ✅ Gotowe: {ZIP_NAME}")

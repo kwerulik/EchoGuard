@@ -7,10 +7,10 @@ import plotly.graph_objects as go
 import time
 from botocore.exceptions import NoCredentialsError
 
-# --- KONFIGURACJA ---
+# --- Config ---
 st.set_page_config(page_title="EchoGuard Dashboard", layout="wide")
 
-# Podłączenie do LocalStack
+# LocalStack
 dynamodb = boto3.resource('dynamodb',
                           endpoint_url='http://localhost:4566',
                           region_name='us-east-1',
@@ -22,12 +22,10 @@ table = dynamodb.Table(TABLE_NAME)
 
 
 def get_data():
-    """Pobiera wszystkie wyniki z DynamoDB i konwertuje na DataFrame"""
     try:
         response = table.scan()
         data = response['Items']
 
-        # Paginacja (gdyby danych było bardzo dużo)
         while 'LastEvaluatedKey' in response:
             response = table.scan(
                 ExclusiveStartKey=response['LastEvaluatedKey'])
@@ -35,11 +33,8 @@ def get_data():
 
         df = pd.DataFrame(data)
         if not df.empty:
-            # Konwersja typów
             df['mse_value'] = df['mse_value'].astype(float)
             df['threshold'] = df['threshold'].astype(float)
-            # Parsowanie daty (timestamp w nazwie pliku to nasza oś czasu)
-            # Format: 2004.02.12.10.32.39 -> datetime
             df['datetime'] = pd.to_datetime(
                 df['timestamp'], format='%Y-%m-%d-%H-%M-%S')
             df = df.sort_values(by='datetime')
@@ -55,12 +50,9 @@ st.title("🛡️ EchoGuard: Predictive Maintenance Dashboard")
 col1, col2, col3 = st.columns(3)
 col1.metric("Status Systemu", "ONLINE", "LocalStack")
 
-# Placeholders na dane
 chart_placeholder = st.empty()
 metrics_placeholder = st.empty()
 
-# Pętla odświeżania (symulacja Real-Time Dashboard)
-# W Streamlit można to zrobić przyciskiem "Odśwież" lub pętlą z rerun
 if st.checkbox("🔴 Włącz Live Monitoring", value=True):
     while True:
         df = get_data()
@@ -71,7 +63,6 @@ if st.checkbox("🔴 Włącz Live Monitoring", value=True):
             threshold = last_record['threshold']
             status = last_record['status']
 
-            # 1. KPI Metrics
             with metrics_placeholder.container():
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Ostatni plik", last_record['timestamp'])
@@ -83,10 +74,8 @@ if st.checkbox("🔴 Włącz Live Monitoring", value=True):
                 status_color = "🟢" if status == "HEALTHY" else "🚨"
                 c3.markdown(f"### Stan: {status_color} {status}")
 
-            # 2. Wykres główny (Health Index)
             fig = go.Figure()
 
-            # Linia MSE
             fig.add_trace(go.Scatter(
                 x=df['datetime'],
                 y=df['mse_value'],
@@ -95,7 +84,6 @@ if st.checkbox("🔴 Włącz Live Monitoring", value=True):
                 line=dict(color='#00CC96', width=2)
             ))
 
-            # Linia Progu (Threshold)
             fig.add_trace(go.Scatter(
                 x=df['datetime'],
                 y=[threshold] * len(df),

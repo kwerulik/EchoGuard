@@ -19,16 +19,15 @@ sys.path.append(os.path.abspath(os.path.join('..', 'src')))
 s3 = boto3.client('s3', endpoint_url='http://localhost:4566',
                   aws_access_key_id='test', aws_secret_access_key='test', region_name='us-east-1')
 BUCKET_NAME = 'echoguard-data'
-DATA_DIR = 'data/raw/2nd_test'  # Upewnij się co do ścieżki
+DATA_DIR = 'data/raw/2nd_test'
 
 
 def run_simulation(interval=0.5):
     """
-    Symuluje działanie maszyny przez cały cykl życia.
-    interval: czas w sekundach między wysłaniem kolejnych plików.
+    Simulates machine behavior throughout its entire lifecycle.
+    interval: Time in seconds between sending consecutive files.
     """
     files = sorted(os.listdir(DATA_DIR))
-    # Filtrujemy tylko pliki z danymi (czasami są tam pliki .pdf readme)
     files = [f for f in files if not f.endswith(
         '.pdf') and not f.endswith('.doc')]
 
@@ -39,23 +38,22 @@ def run_simulation(interval=0.5):
         file_path = os.path.join(DATA_DIR, filename)
 
         try:
-            # 1. Edge Processing (To co robi IoT Gateway)
+            # 1. Edge Processing
             df = load_bearing_data(filename, DATA_DIR)
             melspec = compute_melspec(df)
 
-            # Normalizacja (taka sama jak w treningu!)
+            # Normalization
             NORM_MIN, NORM_MAX = -80.0, 0.0
             norm_mel = (melspec - NORM_MIN) / (NORM_MAX - NORM_MIN)
             norm_mel = np.clip(norm_mel, 0, 1)
 
-            # 2. Zapis do .npy i upload
+            # 2. Save to .npy and upload
             npy_filename = f"{filename}.npy"
             np.save(npy_filename, norm_mel)
 
-            # Upload do S3 (triggeruje Lambdę)
+            # Upload to S3 (triggers Lambdę)
             s3.upload_file(npy_filename, BUCKET_NAME, npy_filename)
 
-            # Sprzątanie lokalne
             os.remove(npy_filename)
 
             print(f"[{i+1}/{len(files)}] 📡 Wysłano: {filename} -> S3")
@@ -63,15 +61,13 @@ def run_simulation(interval=0.5):
         except Exception as e:
             print(f"❌ Błąd przy pliku {filename}: {e}")
 
-        # Symulacja upływu czasu
         time.sleep(interval)
 
 
 if __name__ == "__main__":
-    # Upewnij się, że bucket istnieje
     try:
         s3.create_bucket(Bucket=BUCKET_NAME)
     except:
-        pass  # Bucket pewnie już jest
+        pass 
 
     run_simulation(interval=3) 
