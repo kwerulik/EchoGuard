@@ -7,6 +7,16 @@ import numpy as np
 import onnxruntime as ort
 from datetime import datetime
 
+try:
+    from preprocessing import create_windows
+except ImportError:
+    # Ten blok to "hack" pomocniczy, żeby IDE (VS Code) nie podkreślało błędu
+    # podczas pracy lokalnej, jeśli nie masz skonfigurowanych ścieżek
+    import sys
+    sys.path.append(os.path.abspath(
+        os.path.join(os.path.dirname(__file__), '../src')))
+    from preprocessing import create_windows
+    
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -17,30 +27,6 @@ table = dynamodb.Table(TABLE_NAME)
 
 session = None
 threshold = None
-
-
-def create_windows(data, window_width=64, stride=32):
-    n_mels, time_steps = data.shape
-    windows = []
-
-    if time_steps < window_width:
-        pad_width = window_width - time_steps
-        data = np.pad(data, ((0, 0), (0, pad_width)), mode='constant')
-        time_steps = window_width
-
-    # Sliding window
-    for start in range(0, time_steps - window_width + 1, stride):
-        end = start + window_width
-        window = data[:, start:end]
-        windows.append(window)
-
-    # (Batch_Size, Height, Width)
-    windows = np.array(windows)
-
-    # (Batch, H, W, 1) 
-    windows = np.expand_dims(windows, axis=-1)
-
-    return windows.astype(np.float32)
 
 
 def lambda_handler(event, context):

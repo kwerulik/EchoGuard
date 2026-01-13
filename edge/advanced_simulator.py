@@ -3,17 +3,13 @@ import os
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
-src_path = os.path.join(project_root, 'src')
-sys.path.append(src_path)
+sys.path.append(project_root)
 
 import time
 import numpy as np
 import boto3
-import pandas as pd
-import librosa
-from data_loader import load_bearing_data, compute_melspec 
 
-sys.path.append(os.path.abspath(os.path.join('..', 'src')))
+from src.data_loader import load_bearing_data, compute_melspec
 
 # --- KONFIGURACJA ---
 s3 = boto3.client('s3', endpoint_url='http://localhost:4566',

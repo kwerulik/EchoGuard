@@ -5,6 +5,7 @@ import pandas as pd
 import librosa
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+from .preprocessing import create_windows
 DEFAULT_DATA_DIR = '../data/raw/2nd_test'
 
 
@@ -26,13 +27,13 @@ def compute_melspec(df, colum_name='Bearing_1', sr=20000):
     return melspec_db
 
 
-def creadte_dataset_windows(melspec, window_size=64, stride=32):
-    n_mels, time_steps = melspec.shape
-    windows = []
-    for i in range(0, time_steps-window_size, stride):
-        w = melspec[:, i:i+window_size]
-        windows.append(w)
+# def creadte_dataset_windows(melspec, window_size=64, stride=32):
+#     n_mels, time_steps = melspec.shape
+#     windows = []
+#     for i in range(0, time_steps-window_size, stride):
+#         w = melspec[:, i:i+window_size]
+#         windows.append(w)
 
-    X = np.array(windows)
-    X = X[..., np.newaxis]
-    return X
+#     X = np.array(windows)
+#     X = X[..., np.newaxis]
+#     return X

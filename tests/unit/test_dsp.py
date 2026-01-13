@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from cloud.lambda_handler import create_windows
+from src.preprocessing import create_windows
 
 
 def test_create_windows_shape():

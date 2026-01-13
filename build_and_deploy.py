@@ -68,6 +68,8 @@ def build_package():
     try:
         shutil.copy('cloud/lambda_handler.py',
                     f'{BUILD_DIR}/lambda_handler.py')
+        shutil.copy('src/preprocessing.py',
+                    f'{BUILD_DIR}/preprocessing.py')
         shutil.copy('models/bearing_model.onnx',
                     f'{BUILD_DIR}/bearing_model.onnx')
         shutil.copy('config/model_config.json',
@@ -109,57 +111,45 @@ def deploy():
 
 def configure_trigger(function_arn):
     print("🔗 KROK 3: Podpinanie S3 Trigger...")
-    statement_id = f's3-trigger-{uuid.uuid4()}'
+
+    try:
+        lambda_client.remove_permission(
+            FunctionName=FUNCTION_NAME,
+            StatementId='s3-trigger-permission'
+        )
+    except Exception:
+        pass 
 
     try:
         lambda_client.add_permission(
-            FunctionName=FUNCTION_NAME,
-            StatementId=statement_id,
+            FunctionName=FUNCTION_NAME,  
+            StatementId='s3-trigger-permission',
             Action='lambda:InvokeFunction',
             Principal='s3.amazonaws.com',
-            SourceArn=f'arn:aws:s3:::{BUCKET_NAME}'
+            SourceArn=f"arn:aws:s3:::{BUCKET_NAME}"
         )
-        time.sleep(1)
-    except Exception:
-        pass
+        print("   ✅ Nadano uprawnienia dla S3.")
+    except lambda_client.exceptions.ResourceConflictException:
+        print("   ℹ️ Uprawnienia już istnieją.")
+    except Exception as e:
+        print(f"   ⚠️ Ostrzeżenie przy nadawaniu uprawnień: {e}")
+    time.sleep(2)
 
     try:
-        try:
-            try:
-                lambda_client.remove_permission(
-                    FunctionName='EchoGuardAnalyzer',
-                    StatementId='s3-trigger-permission'
-                )
-            except:
-                pass
-            
-            lambda_client.add_permission(
-                FunctionName='EchoGuardAnalyzer',
-                StatementId='s3-trigger-permission',
-                Action='lambda:InvokeFunction',
-                Principal='s3.amazonaws.com',
-                SourceArn=f"arn:aws:s3:::echoguard-data"
-            )
-            print("✅ Nadano uprawnienia dla S3 do wywoływania Lambdy.")
-        except lambda_client.exceptions.ResourceConflictException:
-            print("ℹ️ Uprawnienia już istnieją.")
-        except Exception as e:
-            print(f"⚠️ Ostrzeżenie przy nadawaniu uprawnień: {e}")
-
         s3_client.put_bucket_notification_configuration(
             Bucket=BUCKET_NAME,
             NotificationConfiguration={
                 'LambdaFunctionConfigurations': [{
-                    'LambdaFunctionArn': function_arn,
+                    'LambdaFunctionArn': function_arn, 
                     'Events': ['s3:ObjectCreated:*'],
                     'Filter': {'Key': {'FilterRules': [{'Name': 'suffix', 'Value': '.npy'}]}}
                 }]
             }
         )
-        print("   ✅ Trigger skonfigurowany.")
+        print("   ✅ Trigger skonfigurowany pomyślnie.")
     except Exception as e:
         print(f"❌ BŁĄD triggera: {e}")
-
+        print("   Wskazówka: Spróbuj uruchomić skrypt ponownie za kilka sekund.")
 
 if __name__ == "__main__":
     ensure_infrastructure()
