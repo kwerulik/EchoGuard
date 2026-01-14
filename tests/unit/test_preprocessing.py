@@ -64,9 +64,16 @@ def test_exact_window_fit():
 
 #*--- Test 7 ---
 def test_3d_input_handling():
-    '''Sprawdza zachowanie funkcji gdy input jest 3 wymiarowa'''
+    '''Sprawdza zachowanie funkcji gdy input ma wymiar 3d'''
     input_signal = np.zeros((1, 128, 64))
     result = create_windows(input_signal)
 
     assert result.ndim == 4
     assert result.shape == (1, 128, 64, 1)
+
+#*--- Test 8 ---
+def test_1d_input_handling():
+    '''Sprawdza zachowanie funkcji gdy input ma wymiar 1d'''
+    input_signal = np.zeros((128))
+    with pytest.raises(ValueError):
+        create_windows(input_signal)
