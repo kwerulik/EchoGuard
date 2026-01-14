@@ -77,3 +77,24 @@ def test_1d_input_handling():
     input_signal = np.zeros((128))
     with pytest.raises(ValueError):
         create_windows(input_signal)
+
+# *--- Test 9 ---
+def test_stride_larger_than_window():
+    '''Sprawdza przypadek, gdy przesunięcie jest większe niż szerokość okna (dziury w analizie)'''
+    input_signal = np.zeros((128, 200))
+
+    result = create_windows(input_signal, window_width=64, stride=100)
+    assert result.shape[0] == 2
+
+#*--- Test 10 ---
+# *--- Test 10: Niestandardowe wymiary okna ---
+
+
+def test_custom_window_size():
+    '''Sprawdza działanie funkcji z niestandardową szerokością okna'''
+    input_signal = np.zeros((128, 100))
+    custom_width = 32
+
+    result = create_windows(input_signal, window_width=custom_width)
+
+    assert result.shape[2] == custom_width, "Szerokość wyjściowa musi zgadzać się z parametrem"
