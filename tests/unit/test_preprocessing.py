@@ -38,8 +38,6 @@ def test_empty_input():
     """Sprawdza zachowanie funkcji dla pustego sygnału wejściowego."""
     empty_signal = np.zeros((128, 0))
     result = create_windows(empty_signal, window_width=64)
-
-    # Oczekujemy jednego okna wypełnionego samym paddingiem (zerami)
     assert result.shape == (1, 128, 64, 1)
     assert np.sum(result) == 0, "Wynik dla pustego wejścia powinien składać się z samych zer"
 
