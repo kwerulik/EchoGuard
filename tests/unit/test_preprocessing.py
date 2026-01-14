@@ -87,9 +87,6 @@ def test_stride_larger_than_window():
     assert result.shape[0] == 2
 
 #*--- Test 10 ---
-# *--- Test 10: Niestandardowe wymiary okna ---
-
-
 def test_custom_window_size():
     '''Sprawdza działanie funkcji z niestandardową szerokością okna'''
     input_signal = np.zeros((128, 100))
@@ -98,3 +95,9 @@ def test_custom_window_size():
     result = create_windows(input_signal, window_width=custom_width)
 
     assert result.shape[2] == custom_width, "Szerokość wyjściowa musi zgadzać się z parametrem"
+
+#*--- Test 11 ---
+def test_none_input():
+    '''Sprawdza czy funkcja rzuci odpowiedni błąd gdy dostanie None'''
+    with pytest.raises(AttributeError):
+        create_windows(None)
