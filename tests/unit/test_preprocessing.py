@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from src.preprocessing import create_windows
 
-
+#*--- Test 1 ---
 def test_create_windows_shape():
     """Sprawdza, czy funkcja tworzy tensor o poprawnych wymiarach (Batch, H, W, C)"""
     input_signal = np.zeros((128, 200))
@@ -15,7 +15,7 @@ def test_create_windows_shape():
     assert result.shape[2] == 64, "Szerokość (W) musi wynosić 64"
     assert result.shape[3] == 1, "Liczba kanałów (C) musi wynosić 1"
 
-
+#*--- Test 2 ---
 def test_create_windows_padding():
     """Sprawdza, czy krótki sygnał jest poprawnie dopełniany zerami"""
     short_signal = np.ones((128, 10))
@@ -25,7 +25,7 @@ def test_create_windows_padding():
     assert np.all(result[0, :, :10, 0] == 1), "Początek okna powinien zawierać sygnał (jedynki)"
     assert np.all(result[0, :, 10:, 0] == 0), "Reszta okna powinna być wypełniona zerami"
 
-
+#*--- Test 3 ---
 def test_data_type_is_float32():
     """Sprawdza, czy typ danych wyjściowych to float32 (wymagany przez ONNX Runtime)."""
     input_signal = np.random.rand(128, 50).astype(np.float64)
@@ -33,7 +33,7 @@ def test_data_type_is_float32():
 
     assert result.dtype == np.float32, "Typ danych musi być przekonwertowany na float32"
 
-
+#*--- Test 4 ---
 def test_empty_input():
     """Sprawdza zachowanie funkcji dla pustego sygnału wejściowego."""
     empty_signal = np.zeros((128, 0))
@@ -41,7 +41,7 @@ def test_empty_input():
     assert result.shape == (1, 128, 64, 1)
     assert np.sum(result) == 0, "Wynik dla pustego wejścia powinien składać się z samych zer"
 
-
+#*--- Test 5 ---
 def test_stride_logic():
     """Sprawdza poprawność przesuwania okna (stride)"""
     input_signal = np.zeros((128, 128))
@@ -52,3 +52,14 @@ def test_stride_logic():
     assert result.shape[0] == 2, "Powinny powstać dwa niezależne okna"
     assert np.mean(result[0]) == 1.0, "Pierwsze okno powinno zawierać same 1"
     assert np.mean(result[1]) == 2.0, "Drugie okno powinno zawierać same 2"
+
+#*--- Test 6 ---
+def test_exact_window_fit():
+    '''Sprawdza sytuacje, gdy sygnał idealnie mieści się w okno(128, 64)'''
+
+    input_signal = np.ones((128, 64))
+    result = create_windows(input_signal)
+
+    assert result.shape == (1, 128, 64, 1)
+    assert np.all(result[0, :, :, 0]) == 1
+
