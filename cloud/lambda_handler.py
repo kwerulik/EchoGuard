@@ -10,8 +10,6 @@ from datetime import datetime
 try:
     from preprocessing import create_windows
 except ImportError:
-    # Ten blok to "hack" pomocniczy, żeby IDE (VS Code) nie podkreślało błędu
-    # podczas pracy lokalnej, jeśli nie masz skonfigurowanych ścieżek
     import sys
     sys.path.append(os.path.abspath(
         os.path.join(os.path.dirname(__file__), '../src')))
