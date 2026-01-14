@@ -55,11 +55,18 @@ def test_stride_logic():
 
 #*--- Test 6 ---
 def test_exact_window_fit():
-    '''Sprawdza sytuacje, gdy sygnał idealnie mieści się w okno(128, 64)'''
-
+    '''Sprawdza zachowanie funkcji, gdy sygnał idealnie mieści się w okno(128, 64)'''
     input_signal = np.ones((128, 64))
     result = create_windows(input_signal)
 
     assert result.shape == (1, 128, 64, 1)
     assert np.all(result[0, :, :, 0]) == 1
 
+#*--- Test 7 ---
+def test_3d_input_handling():
+    '''Sprawdza zachowanie funkcji gdy input jest 3 wymiarowa'''
+    input_signal = np.zeros((1, 128, 64))
+    result = create_windows(input_signal)
+
+    assert result.ndim == 4
+    assert result.shape == (1, 128, 64, 1)
