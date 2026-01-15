@@ -18,7 +18,6 @@ AWS_CONFIG = {
 def run_streamlit():
     """Uruchamia dashboard/app.py w osobnym procesie na czas testów"""
     print("Startowanie Streamlit...")
-
     app_path = os.path.join("dashboard", "app.py")
 
     # Uruchomienie procesu
@@ -27,6 +26,7 @@ def run_streamlit():
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL
     )
+    
     # Czekanie aż serwer wstanie
     for _ in range(10):
         try:
@@ -68,13 +68,10 @@ def test_dashboard_empty_state(run_streamlit, db_setup, page: Page):
     2. Wchodzimy na dashboard.
     3. Oczekujemy komunikatu ostrzegawczego (Warning).
     """
-    # Otwórz stronę dashboardu
     page.goto("http://localhost:8501")
 
     expect(page.get_by_text("EchoGuard: Predictive Maintenance Dashboard")).to_be_visible(timeout=10000)
-
     expect(page.get_by_text("LocalStack")).to_be_visible()
-
     expect(page.get_by_text("Oczekiwanie na dane w DynamoDB...")).to_be_visible()
 
 
@@ -96,6 +93,7 @@ def test_dashboard_displays_metrics(run_streamlit, db_setup, page: Page):
     })
 
     page.goto("http://localhost:8501")
+
     expect(page.get_by_text("ANOMALY_DETECTED")).to_be_visible(timeout=15000)
     expect(page.get_by_text("0.005500")).to_be_visible()
     expect(page.get_by_text("Krzywa Życia Łożyska")).to_be_visible()
