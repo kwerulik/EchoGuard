@@ -18,9 +18,9 @@ def aws_clients():
     """Tworzy klientów połączonych z działającym LocalStackiem"""
     try:
         s3 = boto3.client('s3', **AWS_CONFIG)
-        ddb = boto3.resource('dynamodb', **AWS_CONFIG)
+        dynamodb = boto3.resource('dynamodb', **AWS_CONFIG)
         s3.list_buckets()
-        return s3, ddb
+        return s3, dynamodb
     except Exception as e:
         pytest.fail(
             f"Nie można połączyć się z LocalStackiem {ENDPOINT_URL}. Błąd: {e}")
@@ -38,7 +38,7 @@ def create_temp_npy(shape=(128, 100), content=None):
 #*--- Test 1 ---
 def test_e2e_processing_zeros(aws_clients):
     """Sprawdza pełny cykl przetwarzania dla pliku z samymi zerami (oczekiwana anomalia)."""
-    s3, ddb = aws_clients
+    s3, dynamodb = aws_clients
     bucket_name = 'echoguard-data'
     file_key = f'e2e_01_{int(time.time())}.npy'
     local_path = create_temp_npy()
@@ -47,7 +47,7 @@ def test_e2e_processing_zeros(aws_clients):
         s3.upload_file(local_path, bucket_name, file_key)
         time.sleep(10)
 
-        table = ddb.Table('EchoGuardResults')
+        table = dynamodb.Table('EchoGuardResults')
         items = table.scan().get('Items', [])
 
         found_item = None
@@ -66,7 +66,7 @@ def test_e2e_processing_zeros(aws_clients):
 #*--- Test 2 ---
 def test_e2e_processing_noise(aws_clients):
     """Sprawdza czy system poprawnie przetwarza i zapisuje losowy szum."""
-    s3, ddb = aws_clients
+    s3, dynamodb = aws_clients
     file_key = f'e2e_02_{int(time.time())}.npy'
     local_path = create_temp_npy(content=np.random.rand(128, 100).astype(np.float32))
 
@@ -74,7 +74,7 @@ def test_e2e_processing_noise(aws_clients):
         s3.upload_file(local_path, 'echoguard-data', file_key)
         time.sleep(10)
 
-        items = ddb.Table('EchoGuardResults').scan().get('Items', [])
+        items = dynamodb.Table('EchoGuardResults').scan().get('Items', [])
 
         found_item = None
         for item in items:
@@ -92,7 +92,7 @@ def test_e2e_processing_noise(aws_clients):
 #*--- Test 3 ---
 def test_e2e_ignore_txt(aws_clients):
     """Weryfikuje, czy filtr S3 ignoruje pliki inne niż .npy (np. .txt)."""
-    s3, ddb = aws_clients
+    s3, dynamodb = aws_clients
     file_key = f'e2e_03_{int(time.time())}.txt'
 
     fd, local_path = tempfile.mkstemp(suffix=".txt")
@@ -102,7 +102,7 @@ def test_e2e_ignore_txt(aws_clients):
         s3.upload_file(local_path, 'echoguard-data', file_key)
         time.sleep(5)
 
-        items = ddb.Table('EchoGuardResults').scan().get('Items', [])
+        items = dynamodb.Table('EchoGuardResults').scan().get('Items', [])
 
         found_item = None
         for item in items:
@@ -119,7 +119,7 @@ def test_e2e_ignore_txt(aws_clients):
 #*--- Test 4 ---
 def test_e2e_corrupted_file(aws_clients):
     """Sprawdza uszkodzony plik nie powinien trafić do bazy."""
-    s3, ddb = aws_clients
+    s3, dynamodb = aws_clients
     file_key = f'e2e_04_corrupted_{int(time.time())}.npy'
 
     fd, local_path = tempfile.mkstemp(suffix=".npy")
@@ -130,7 +130,7 @@ def test_e2e_corrupted_file(aws_clients):
         s3.upload_file(local_path, 'echoguard-data', file_key)
         time.sleep(10)
 
-        items = ddb.Table('EchoGuardResults').scan().get('Items', [])
+        items = dynamodb.Table('EchoGuardResults').scan().get('Items', [])
 
         found_item = None
         for item in items:
@@ -147,7 +147,7 @@ def test_e2e_corrupted_file(aws_clients):
 #*--- Test 5 ---
 def test_e2e_subfolder_file(aws_clients):
     """Sprawdza czy Trigger S3 działa poprawnie dla plików w podfolderach."""
-    s3, ddb = aws_clients
+    s3, dynamodb = aws_clients
     file_key = f'sensors/zone_a/e2e_05_{int(time.time())}.npy'
     local_path = create_temp_npy()
 
@@ -155,7 +155,7 @@ def test_e2e_subfolder_file(aws_clients):
         s3.upload_file(local_path, 'echoguard-data', file_key)
         time.sleep(10)
 
-        items = ddb.Table('EchoGuardResults').scan().get('Items', [])
+        items = dynamodb.Table('EchoGuardResults').scan().get('Items', [])
 
         found_item = None
         for item in items:
@@ -173,7 +173,7 @@ def test_e2e_subfolder_file(aws_clients):
 #*--- Test 6 ---
 def test_e2e_3d_input(aws_clients):
     """Testuje czy dane 3D są poprawnie spłaszczane."""
-    s3, ddb = aws_clients
+    s3, dynamodb = aws_clients
     file_key = f'e2e_06_{int(time.time())}.npy'
     local_path = create_temp_npy(shape=(1, 128, 100))
 
@@ -181,7 +181,7 @@ def test_e2e_3d_input(aws_clients):
         s3.upload_file(local_path, 'echoguard-data', file_key)
         time.sleep(10)
 
-        items = ddb.Table('EchoGuardResults').scan().get('Items', [])
+        items = dynamodb.Table('EchoGuardResults').scan().get('Items', [])
 
         found_item = None
         for item in items:
@@ -199,7 +199,7 @@ def test_e2e_3d_input(aws_clients):
 #*--- Test 7 ---
 def test_e2e_burst_upload(aws_clients):
     """Weryfikuje czy system obsłuży nagły napływ kilku plików."""
-    s3, ddb = aws_clients
+    s3, dynamodb = aws_clients
     base_name = f'e2e_07_{int(time.time())}'
     files = [f"{base_name}_{i}.npy" for i in range(3)]
     local_path = create_temp_npy()
@@ -210,7 +210,7 @@ def test_e2e_burst_upload(aws_clients):
 
         time.sleep(15)
 
-        items = ddb.Table('EchoGuardResults').scan().get('Items', [])
+        items = dynamodb.Table('EchoGuardResults').scan().get('Items', [])
 
         found_count = 0
         for item in items:
@@ -226,7 +226,7 @@ def test_e2e_burst_upload(aws_clients):
 #*--- Test 8 ---
 def test_e2e_overwrite_file(aws_clients):
     """Sprawdza czy ponowne wgranie pliku aktualizuje wpis zamiast tworzyć duplikat."""
-    s3, ddb = aws_clients
+    s3, dynamodb = aws_clients
     file_key = f'e2e_09_overwrite.npy'
     local_path = create_temp_npy()
 
@@ -237,7 +237,7 @@ def test_e2e_overwrite_file(aws_clients):
         s3.upload_file(local_path, 'echoguard-data', file_key)
         time.sleep(8)
 
-        items = ddb.Table('EchoGuardResults').scan().get('Items', [])
+        items = dynamodb.Table('EchoGuardResults').scan().get('Items', [])
 
         matching_items = []
         for item in items:
