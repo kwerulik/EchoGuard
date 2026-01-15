@@ -25,6 +25,13 @@ def aws_clients():
         pytest.fail(
             f"Nie można połączyć się z LocalStackiem pod {ENDPOINT_URL}. Czy kontenery działają? Błąd: {e}")
         
+def create_temp_npy(shape=(128, 100), content=None):
+    fd, path = tempfile.mkstemp(suffix=".npy")
+    os.close(fd)
+    data = content if content is not None else np.zeros(
+        shape, dtype=np.float32)
+    np.save(path, data)
+    return path
 
 #*--- Test 1 ---
 def test_e2e_full_processing_chain(aws_clients):
@@ -131,22 +138,22 @@ def test_e2e_ignore_txt_files(aws_clients):
         print(f"\n📤 [E2E] Wysyłanie pliku .txt: {file_key}")
         s3.upload_file(local_path, bucket_name, file_key)
 
-        print("⏳ [E2E] Czekanie 10s (Lambda NIE powinna zadziałać)...")
+        print("[E2E] Czekanie 10s (Lambda NIE powinna zadziałać)...")
         time.sleep(10)
 
         table = ddb.Table('EchoGuardResults')
         items = table.scan()['Items']
 
-        # Szukamy czy przypadkiem nie pojawił się wpis dla tego pliku
+        # Szukamy czy nie pojawił się wpis dla tego pliku
         found_item = next(
             (i for i in items if i.get('source_file') == file_key), None)
 
         # Oczekujemy, że wpisu NIE MA (Lambda zignorowała plik)
         if found_item:
             pytest.fail(
-                f"❌ Błąd! Lambda przetworzyła plik .txt, a nie powinna! Status: {found_item}")
+                f"Błąd! Lambda przetworzyła plik .txt, a nie powinna! Status: {found_item}")
 
-        print("✅ [E2E] Sukces: Plik .txt został zignorowany przez trigger.")
+        print("[E2E] Sukces: Plik .txt został zignorowany przez trigger.")
 
     finally:
         # Sprzątanie
