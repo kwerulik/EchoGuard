@@ -82,3 +82,33 @@ def test_e2e_full_processing_chain(aws_clients):
     finally:
         if os.path.exists(local_path):
             os.remove(local_path)
+
+
+#*--- Test 2 ---
+def test_e2e_processing_noise(aws_clients):
+    """Sprawdza przepływ dla losowego szumu"""
+    s3, ddb = aws_clients
+    bucket_name = 'echoguard-data'
+
+    test_data = np.random.rand(128, 100).astype(np.float32)
+    file_key = f'e2e_noise_{int(time.time())}.npy'
+
+    fd, local_path = tempfile.mkstemp(suffix=".npy")
+    os.close(fd)
+    np.save(local_path, test_data)
+
+    try:
+        s3.upload_file(local_path, bucket_name, file_key)
+        time.sleep(15)
+
+        table = ddb.Table('EchoGuardResults')
+        response = table.scan()
+        items = response.get('Items', [])
+        found_item = next((i for i in items if i.get('source_file') == file_key), None)
+
+        assert found_item is not None
+        assert found_item['status'] == 'ANOMALY_DETECTED'
+
+    finally:
+        if os.path.exists(local_path):
+            os.remove(local_path)
