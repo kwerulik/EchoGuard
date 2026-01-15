@@ -34,6 +34,7 @@ def create_temp_npy(shape=(128, 100), content=None):
     np.save(path, data)
     return path
 
+
 #*--- Test 1 ---
 def test_e2e_processing_zeros(aws_clients):
     """Sprawdza pełny cykl przetwarzania dla pliku z samymi zerami (oczekiwana anomalia)."""
@@ -87,6 +88,7 @@ def test_e2e_processing_noise(aws_clients):
         if os.path.exists(local_path):
             os.remove(local_path)
 
+
 #*--- Test 3 ---
 def test_e2e_ignore_txt(aws_clients):
     """Weryfikuje, czy filtr S3 ignoruje pliki inne niż .npy (np. .txt)."""
@@ -113,3 +115,56 @@ def test_e2e_ignore_txt(aws_clients):
         if os.path.exists(local_path):
             os.remove(local_path)
 
+
+#*--- Test 4 ---
+def test_e2e_corrupted_file(aws_clients):
+    """Sprawdza uszkodzony plik nie powinien trafić do bazy."""
+    s3, ddb = aws_clients
+    file_key = f'e2e_04_corrupted_{int(time.time())}.npy'
+
+    fd, local_path = tempfile.mkstemp(suffix=".npy")
+    os.write(fd, b"To nie jest poprawny numpy array")
+    os.close(fd)
+
+    try:
+        s3.upload_file(local_path, 'echoguard-data', file_key)
+        time.sleep(10)
+
+        items = ddb.Table('EchoGuardResults').scan().get('Items', [])
+
+        found_item = None
+        for item in items:
+            if item.get('source_file') == file_key:
+                found_item = item
+                break
+
+        assert found_item is None
+    finally:
+        if os.path.exists(local_path):
+            os.remove(local_path)
+
+
+#*--- Test 5 ---
+def test_e2e_subfolder_file(aws_clients):
+    """Sprawdza czy Trigger S3 działa poprawnie dla plików w podfolderach."""
+    s3, ddb = aws_clients
+    file_key = f'sensors/zone_a/e2e_05_{int(time.time())}.npy'
+    local_path = create_temp_npy()
+
+    try:
+        s3.upload_file(local_path, 'echoguard-data', file_key)
+        time.sleep(10)
+
+        items = ddb.Table('EchoGuardResults').scan().get('Items', [])
+
+        found_item = None
+        for item in items:
+            if item.get('source_file') == file_key:
+                found_item = item
+                break
+
+        assert found_item is not None
+        assert found_item['device_id'] == 'test_rig_1'
+    finally:
+        if os.path.exists(local_path):
+            os.remove(local_path)
