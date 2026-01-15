@@ -112,3 +112,43 @@ def test_e2e_processing_noise(aws_clients):
     finally:
         if os.path.exists(local_path):
             os.remove(local_path)
+
+#*--- Test 3 ---
+def test_e2e_ignore_txt_files(aws_clients):
+    """Lambda ma filtr na .npy, więc plik .txt nie powinien trafić do bazy"""
+    s3, ddb = aws_clients
+    bucket_name = 'echoguard-data'
+
+    fd, local_path = tempfile.mkstemp(suffix=".txt")
+    os.close(fd)
+    file_key = f'readme_{int(time.time())}.txt'
+
+    with open(local_path, 'w') as f:
+        f.write("To nie jest plik npy")
+
+    try:
+
+        print(f"\n📤 [E2E] Wysyłanie pliku .txt: {file_key}")
+        s3.upload_file(local_path, bucket_name, file_key)
+
+        print("⏳ [E2E] Czekanie 10s (Lambda NIE powinna zadziałać)...")
+        time.sleep(10)
+
+        table = ddb.Table('EchoGuardResults')
+        items = table.scan()['Items']
+
+        # Szukamy czy przypadkiem nie pojawił się wpis dla tego pliku
+        found_item = next(
+            (i for i in items if i.get('source_file') == file_key), None)
+
+        # Oczekujemy, że wpisu NIE MA (Lambda zignorowała plik)
+        if found_item:
+            pytest.fail(
+                f"❌ Błąd! Lambda przetworzyła plik .txt, a nie powinna! Status: {found_item}")
+
+        print("✅ [E2E] Sukces: Plik .txt został zignorowany przez trigger.")
+
+    finally:
+        # Sprzątanie
+        if os.path.exists(local_path):
+            os.remove(local_path)
