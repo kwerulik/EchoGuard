@@ -168,3 +168,29 @@ def test_e2e_subfolder_file(aws_clients):
     finally:
         if os.path.exists(local_path):
             os.remove(local_path)
+
+
+#*--- Test 6 ---
+def test_e2e_3d_input(aws_clients):
+    """Testuje integrację preprocessingu: czy dane 3D są poprawnie spłaszczane."""
+    s3, ddb = aws_clients
+    file_key = f'e2e_06_{int(time.time())}.npy'
+    local_path = create_temp_npy(shape=(1, 128, 100))
+
+    try:
+        s3.upload_file(local_path, 'echoguard-data', file_key)
+        time.sleep(10)
+
+        items = ddb.Table('EchoGuardResults').scan().get('Items', [])
+
+        found_item = None
+        for item in items:
+            if item.get('source_file') == file_key:
+                found_item = item
+                break
+
+        assert found_item is not None
+        assert int(found_item['windows_processed']) > 0
+    finally:
+        if os.path.exists(local_path):
+            os.remove(local_path)
