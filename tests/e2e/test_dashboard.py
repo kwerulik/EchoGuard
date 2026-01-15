@@ -78,3 +78,24 @@ def test_dashboard_empty_state(run_streamlit, db_setup, page: Page):
     expect(page.get_by_text("Oczekiwanie na dane w DynamoDB...")).to_be_visible()
 
 
+#*--- Test 2 ---
+def test_dashboard_displays_metrics(run_streamlit, db_setup, page: Page):
+    """
+    Scenariusz:
+    1. Wrzucamy do bazy rekord z Anomalią.
+    2. Odświeżamy dashboard (lub czekamy na auto-refresh).
+    3. Sprawdzamy czy widać "ANOMALY_DETECTED" i czerwony alarm.
+    """
+    db_setup.put_item(Item={
+        'device_id': 'test_rig_1',
+        'timestamp': '2024-01-01-12-00-00',
+        'mse_value': '0.0055',
+        'threshold': '0.002',
+        'status': 'ANOMALY_DETECTED',
+        'source_file': 'test_dashboard.npy'
+    })
+
+    page.goto("http://localhost:8501")
+    expect(page.get_by_text("ANOMALY_DETECTED")).to_be_visible(timeout=15000)
+    expect(page.get_by_text("0.005500")).to_be_visible()
+    expect(page.get_by_text("Krzywa Życia Łożyska")).to_be_visible()
