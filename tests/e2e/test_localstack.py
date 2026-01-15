@@ -67,8 +67,7 @@ def test_e2e_processing_noise(aws_clients):
     """Sprawdza czy system poprawnie przetwarza i zapisuje losowy szum."""
     s3, ddb = aws_clients
     file_key = f'e2e_02_{int(time.time())}.npy'
-    local_path = create_temp_npy(
-        content=np.random.rand(128, 100).astype(np.float32))
+    local_path = create_temp_npy(content=np.random.rand(128, 100).astype(np.float32))
 
     try:
         s3.upload_file(local_path, 'echoguard-data', file_key)
@@ -89,41 +88,28 @@ def test_e2e_processing_noise(aws_clients):
             os.remove(local_path)
 
 #*--- Test 3 ---
-def test_e2e_ignore_txt_files(aws_clients):
-    """Lambda ma filtr na .npy, więc plik .txt nie powinien trafić do bazy"""
+def test_e2e_ignore_txt(aws_clients):
+    """Weryfikuje, czy filtr S3 ignoruje pliki inne niż .npy (np. .txt)."""
     s3, ddb = aws_clients
-    bucket_name = 'echoguard-data'
+    file_key = f'e2e_03_{int(time.time())}.txt'
 
     fd, local_path = tempfile.mkstemp(suffix=".txt")
     os.close(fd)
-    file_key = f'readme_{int(time.time())}.txt'
-
-    with open(local_path, 'w') as f:
-        f.write("To nie jest plik npy")
 
     try:
+        s3.upload_file(local_path, 'echoguard-data', file_key)
+        time.sleep(5)
 
-        print(f"\n📤 [E2E] Wysyłanie pliku .txt: {file_key}")
-        s3.upload_file(local_path, bucket_name, file_key)
+        items = ddb.Table('EchoGuardResults').scan().get('Items', [])
 
-        print("[E2E] Czekanie 10s (Lambda NIE powinna zadziałać)...")
-        time.sleep(10)
+        found_item = None
+        for item in items:
+            if item.get('source_file') == file_key:
+                found_item = item
+                break
 
-        table = ddb.Table('EchoGuardResults')
-        items = table.scan()['Items']
-
-        # Szukamy czy nie pojawił się wpis dla tego pliku
-        found_item = next(
-            (i for i in items if i.get('source_file') == file_key), None)
-
-        # Oczekujemy, że wpisu NIE MA (Lambda zignorowała plik)
-        if found_item:
-            pytest.fail(
-                f"Błąd! Lambda przetworzyła plik .txt, a nie powinna! Status: {found_item}")
-
-        print("[E2E] Sukces: Plik .txt został zignorowany przez trigger.")
-
+        assert found_item is None  # Nie powinno być wpisu
     finally:
-        # Sprzątanie
         if os.path.exists(local_path):
             os.remove(local_path)
+
