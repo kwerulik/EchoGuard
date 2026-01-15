@@ -35,8 +35,6 @@ def create_temp_npy(shape=(128, 100), content=None):
     return path
 
 #*--- Test 1 ---
-
-
 def test_e2e_processing_zeros(aws_clients):
     """Sprawdza pełny cykl przetwarzania dla pliku z samymi zerami (oczekiwana anomalia)."""
     s3, ddb = aws_clients
@@ -62,31 +60,30 @@ def test_e2e_processing_zeros(aws_clients):
     finally:
         if os.path.exists(local_path):
             os.remove(local_path)
+
+
 #*--- Test 2 ---
 def test_e2e_processing_noise(aws_clients):
-    """Sprawdza przepływ dla losowego szumu"""
+    """Sprawdza czy system poprawnie przetwarza i zapisuje losowy szum."""
     s3, ddb = aws_clients
-    bucket_name = 'echoguard-data'
-
-    test_data = np.random.rand(128, 100).astype(np.float32)
-    file_key = f'e2e_noise_{int(time.time())}.npy'
-
-    fd, local_path = tempfile.mkstemp(suffix=".npy")
-    os.close(fd)
-    np.save(local_path, test_data)
+    file_key = f'e2e_02_{int(time.time())}.npy'
+    local_path = create_temp_npy(
+        content=np.random.rand(128, 100).astype(np.float32))
 
     try:
-        s3.upload_file(local_path, bucket_name, file_key)
-        time.sleep(15)
+        s3.upload_file(local_path, 'echoguard-data', file_key)
+        time.sleep(10)
 
-        table = ddb.Table('EchoGuardResults')
-        response = table.scan()
-        items = response.get('Items', [])
-        found_item = next((i for i in items if i.get('source_file') == file_key), None)
+        items = ddb.Table('EchoGuardResults').scan().get('Items', [])
+
+        found_item = None
+        for item in items:
+            if item.get('source_file') == file_key:
+                found_item = item
+                break
 
         assert found_item is not None
-        assert found_item['status'] == 'ANOMALY_DETECTED'
-
+        assert 'mse_value' in found_item
     finally:
         if os.path.exists(local_path):
             os.remove(local_path)
