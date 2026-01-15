@@ -172,7 +172,7 @@ def test_e2e_subfolder_file(aws_clients):
 
 #*--- Test 6 ---
 def test_e2e_3d_input(aws_clients):
-    """Testuje integrację preprocessingu: czy dane 3D są poprawnie spłaszczane."""
+    """Testuje czy dane 3D są poprawnie spłaszczane."""
     s3, ddb = aws_clients
     file_key = f'e2e_06_{int(time.time())}.npy'
     local_path = create_temp_npy(shape=(1, 128, 100))
@@ -194,3 +194,32 @@ def test_e2e_3d_input(aws_clients):
     finally:
         if os.path.exists(local_path):
             os.remove(local_path)
+
+
+#*--- Test 7 ---
+def test_e2e_burst_upload(aws_clients):
+    """Weryfikuje czy system obsłuży nagły napływ kilku plików."""
+    s3, ddb = aws_clients
+    base_name = f'e2e_07_{int(time.time())}'
+    files = [f"{base_name}_{i}.npy" for i in range(3)]
+    local_path = create_temp_npy()
+
+    try:
+        for f in files:
+            s3.upload_file(local_path, 'echoguard-data', f)
+
+        time.sleep(15)
+
+        items = ddb.Table('EchoGuardResults').scan().get('Items', [])
+
+        found_count = 0
+        for item in items:
+            if item.get('source_file') in files:
+                found_count += 1
+
+        assert found_count == 3, f"Oczekiwano 3 wpisów, znaleziono {found_count}"
+    finally:
+        if os.path.exists(local_path):
+            os.remove(local_path)
+
+
