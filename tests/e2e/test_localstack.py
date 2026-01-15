@@ -223,3 +223,28 @@ def test_e2e_burst_upload(aws_clients):
             os.remove(local_path)
 
 
+#*--- Test 8 ---
+def test_e2e_overwrite_file(aws_clients):
+    """Sprawdza czy ponowne wgranie pliku aktualizuje wpis zamiast tworzyć duplikat."""
+    s3, ddb = aws_clients
+    file_key = f'e2e_09_overwrite.npy'
+    local_path = create_temp_npy()
+
+    try:
+        s3.upload_file(local_path, 'echoguard-data', file_key)
+        time.sleep(8)
+
+        s3.upload_file(local_path, 'echoguard-data', file_key)
+        time.sleep(8)
+
+        items = ddb.Table('EchoGuardResults').scan().get('Items', [])
+
+        matching_items = []
+        for item in items:
+            if item.get('source_file') == file_key:
+                matching_items.append(item)
+
+        assert len(matching_items) == 1
+    finally:
+        if os.path.exists(local_path):
+            os.remove(local_path)
