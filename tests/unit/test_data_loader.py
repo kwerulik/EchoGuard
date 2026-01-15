@@ -39,3 +39,24 @@ def test_load_bearing_data_file_not_found(mock_read_csv):
 
 
 #*---Test 3 ---
+@patch('src.data_loader.librosa.power_to_db')
+@patch('src.data_loader.librosa.feature.melspectrogram')
+def test_compute_mel_calls(mock_melspec, mock_power_to_db):
+    """Sprawdza czy librosa została wywołana z prawidłowymi parametrami (n_mels=128 itp.)"""
+    df = pd.DataFrame({'Bearing_1': np.random.rand(1000)})
+
+    mock_melspec_result = np.zeros((128, 10))
+    mock_melspec.return_value = mock_melspec_result
+    mock_power_to_db.return_value = mock_melspec_result
+
+    compute_melspec(df)
+
+    mock_melspec.assert_called_once()
+    _, kwargs = mock_melspec.call_args
+
+    assert kwargs['sr'] == 20000
+    assert kwargs['n_mels'] == 128
+    assert kwargs['fmax'] == 10000
+    assert kwargs['hop_length'] == 128
+
+    mock_power_to_db.assert_called_once()
