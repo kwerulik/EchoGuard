@@ -27,4 +27,15 @@ def test_load_bearing_data_success(mock_read_csv):
     assert list(result.columns) == expected_cols
     assert len(result) == 5
 
+
 #*--- Test 2 ---
+@patch('src.data_loader.pd.read_csv')
+def test_load_bearing_data_file_not_found(mock_read_csv):
+    '''Sprawdza zachowanie funkcji gdy nie ma pliku'''
+    mock_read_csv.side_effect = FileNotFoundError('Brak Pliku')
+
+    with pytest.raises(FileNotFoundError):
+        load_bearing_data('brakpliku.csv')
+
+
+#*---Test 3 ---
