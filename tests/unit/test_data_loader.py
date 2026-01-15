@@ -60,3 +60,21 @@ def test_compute_mel_calls(mock_melspec, mock_power_to_db):
     assert kwargs['hop_length'] == 128
 
     mock_power_to_db.assert_called_once()
+
+
+#*--- Test 4 ---
+@patch('src.data_loader.librosa.power_to_db')
+@patch('src.data_loader.librosa.feature.melspectrogram')
+def test_compute_melspec_custom_column(mock_melspec, mock_power_to_db):
+    """Sprawdza czy funkcja pobiera dane z wskazanej kolumny"""
+    df = pd.DataFrame({
+        'Bearing_1': np.zeros(100),
+        'Bearing_2': np.ones(100) 
+    })
+    
+    compute_melspec(df, colum_name='Bearing_2')
+
+    _, kwargs = mock_melspec.call_args
+    passed_signal = kwargs['y']
+
+    assert np.mean(passed_signal) == 1.0

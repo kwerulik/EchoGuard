@@ -20,7 +20,7 @@ def load_bearing_data(filemane, data_dir=DEFAULT_DATA_DIR):
 
 
 def compute_melspec(df, colum_name='Bearing_1', sr=20000):
-    signal = df['Bearing_1'].values
+    signal = df[colum_name].values
     melspec = librosa.feature.melspectrogram(
         y=signal, sr=sr, n_mels=128, fmax=10000, hop_length=128)
     melspec_db = librosa.power_to_db(melspec, ref=np.max)
