@@ -1,3 +1,12 @@
+# 🛡️ EchoGuard: Serverless Predictive Maintenance System
+
+![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
+![AWS](https://img.shields.io/badge/AWS-Lambda%20%7C%20S3%20%7C%20DynamoDB-orange)
+![LocalStack](https://img.shields.io/badge/Cloud-LocalStack-purple)
+![Tests](https://img.shields.io/badge/Tests-Passing-green)
+
+**EchoGuard** is an IoT-Cloud system designed for **Predictive Maintenance** of rotating machinery. It uses Deep Learning (Autoencoders) to detect anomalies in vibration data before catastrophic failure occurs. The system features a serverless architecture simulated locally using LocalStack.
+
 ---
 
 ## 📉 Case Study: NASA IMS Bearing Dataset
@@ -15,6 +24,18 @@ Approximately **48 hours before the physical failure**, the system detects a shi
 
 ![Anomaly State Dashboard](Anomaly.png)
 *> Dashboard showing a critical spike in MSE, predicting the upcoming failure.*
+
+---
+
+## ✅ Quality Assurance & Testing Strategy
+
+The project adheres to strict engineering standards with a comprehensive testing suite covering **100% of critical paths**.
+
+| Type | Count | Tools | Description |
+| :--- | :---: | :--- | :--- |
+| **Unit Tests** | **21** | `pytest`, `unittest.mock` | Validates signal processing logic, mathematical correctness of tensor operations, and cloud handler logic in isolation using extensive mocking. |
+| **E2E Tests** | **10** | `pytest`, `LocalStack` | Verifies the full cloud pipeline: File Upload -> S3 Trigger -> Dockerized Lambda -> ONNX Inference -> DynamoDB Storage. |
+| **UI Tests** | **2** | `Playwright` | Automated browser testing for the Streamlit Dashboard, verifying data visualization and alert rendering in real-time scenarios. |
 
 ---
 
@@ -44,6 +65,7 @@ The entire environment is orchestrated via Docker Compose.
 | **AI / ML** | **TensorFlow -> ONNX** | Training with Keras API, Inference optimization with ONNX. |
 | **Visualization** | **Streamlit + Plotly** | Rapid development of interactive, real-time engineering dashboards. |
 | **Containerization** | **Docker & Docker Compose** | Reproducible environments and IaC (Infrastructure as Code). |
+| **Testing** | **Pytest & Playwright** | Robust testing for backend logic and frontend UI. |
 
 ---
 
@@ -74,6 +96,12 @@ The entire environment is orchestrated via Docker Compose.
     ```bash
     python edge/advanced_simulator.py
     ```
+    
+5.  **Run Tests:**
+    To verify system integrity:
+    ```bash
+    pytest
+    ```
 
 ---
 
@@ -84,8 +112,7 @@ The entire environment is orchestrated via Docker Compose.
 * `/dashboard` - Streamlit application for real-time monitoring.
 * `/models` - Pre-trained Autoencoder model (ONNX format).
 * `/notebooks` - Jupyter notebooks used for data exploration and model training.
+* `/tests` - Comprehensive test suite (Unit, E2E, UI).
 * `/src` - Helper modules and utility scripts.
 * `build_and_deploy.py` - DevOps script for automated Lambda packaging and deployment.
 * `docker-compose.yml` - Complete environment definition (Infrastructure as Code).
-
----
