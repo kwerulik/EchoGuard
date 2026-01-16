@@ -10,7 +10,6 @@ from datetime import datetime
 try:
     from preprocessing import create_windows
 except ImportError:
-    import sys
     sys.path.append(os.path.abspath(
         os.path.join(os.path.dirname(__file__), '../src')))
     from preprocessing import create_windows
