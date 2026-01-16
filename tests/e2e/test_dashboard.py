@@ -41,7 +41,7 @@ def run_streamlit():
         pytest.fail("Streamlit nie wystartował w ciągu 10 sekund")
 
     yield
-    # Sprzątanie po testach
+
     print("Zamykanie Streamlit...")
     process.kill()
 
